@@ -1,9 +1,9 @@
-import pyamg
 from scipy.sparse.linalg import LinearOperator, cg
 from scipy.sparse.linalg import spsolve
 
 
 def solve_spd_with_amg(A, b, tol=1e-8, maxiter=200):
+    import pyamg
     ml = pyamg.smoothed_aggregation_solver(A)  # or ruge_stuben_solver for pure Poisson
     M = ml.aspreconditioner()                   # right preconditioner
     x, info = cg(A, b, M=M, maxiter=maxiter)
@@ -23,7 +23,9 @@ def solve_with_spsolve(A, b):
 
 # TODO: pardiso is not implemented on arm64 yet
 def solve_with_pardiso(A, b):
-    pass
+    from pypardiso import spsolve as pardiso_spsolve
+    x = pardiso_spsolve(A, b)
+    return x
 
 
 
