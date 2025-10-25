@@ -1,3 +1,5 @@
+import config
+
 import numpy as np
 from scipy.sparse import load_npz, csr_matrix
 import time
