@@ -1,7 +1,7 @@
 from scipy.sparse.linalg import LinearOperator, cg
 from scipy.sparse.linalg import spsolve
 
-
+# This is still the fastest solver for large sparse linear systems
 def solve_spd_with_amg(A, b, tol=1e-8, maxiter=200):
     import pyamg
     ml = pyamg.smoothed_aggregation_solver(A)  # or ruge_stuben_solver for pure Poisson

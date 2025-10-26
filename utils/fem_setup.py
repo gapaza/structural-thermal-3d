@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Tuple
+import time
 
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix, lil_matrix

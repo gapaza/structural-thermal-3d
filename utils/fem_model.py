@@ -400,9 +400,9 @@ def indices_to_binary_matrix(indices: list[int], nelx: int, nely: int, nelz: int
 
 if __name__ == '__main__':
 
-    nelx = 48
-    nely = 48
-    nelz = 48
+    nelx = 64
+    nely = 64
+    nelz = 64
 
     fixed_elements_matrix = np.zeros((nelx + 1, nely + 1, nelz + 1), dtype=int)
     fixed_elements_matrix[0, 0, 0] = 1
