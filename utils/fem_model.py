@@ -183,11 +183,11 @@ class FeaModel3D:
         # 2) Parameters
         penal = 3.0                  # SIMP Penalty
         rmin = bcs.get("rmin", 1.1)  # Minimum feature size
-        E = 1.0
-        nu = 0.3
-        k = 1.0
-        alpha = 5e-4
-        tref = 9.267e-4
+        E = 1.0                      # Young's modulus
+        nu = 0.3                     # Poisson's ratio
+        k = 1.0                      # Thermal conductivity
+        alpha = 5e-4                 # Thermal strain
+        tref = 9.267e-4              # Reference temperature
 
         change = 1.0
         iterr = 0
