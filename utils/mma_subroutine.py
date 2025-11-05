@@ -93,7 +93,7 @@ def mmasub(inputs: MMAInputs) -> NDArray[np.float64]:
 
     # MMA parameters
     raa0 = 1e-5
-    move = 1.0
+    move = 0.5  # was 1.0
     albefa = 0.1
     asyinit = 0.01
     asyincr = 1.2
@@ -101,7 +101,8 @@ def mmasub(inputs: MMAInputs) -> NDArray[np.float64]:
     asymax = 0.2
     asymin = 0.01
 
-    results = external_mmasub(
+
+    xmma, ymma, zmma, lam, xsi, eta, mu, zet, s, low, up = external_mmasub(
         m,
         n,
         iterr,
@@ -130,4 +131,5 @@ def mmasub(inputs: MMAInputs) -> NDArray[np.float64]:
         albefa=albefa,
     )
 
-    return results[0]
+    # return results[0]
+    return xmma, low, up

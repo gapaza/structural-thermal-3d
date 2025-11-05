@@ -2,6 +2,7 @@ from math import ceil
 from math import hypot
 import time
 from typing import Any
+import os
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -25,9 +26,10 @@ from utils.fem_setup import fe_mthm_bc_3d
 
 
 from utils.fem_plotting import plot_fem_3d
-
 from utils.linear_solver import solve_spd_with_amg
 
+import pickle
+from utils.hashing import hash_conditions
 
 SECOND_ITERATION_THRESHOLD = 2
 FIRST_ITERATION_THRESHOLD = 1
@@ -39,7 +41,7 @@ UPDATE_THRESHOLD = 0.01
 class FeaModel3D:
     """Finite Element Analysis (FEA) model for coupled 3D thermoelastic topology optimization."""
 
-    def __init__(self, *, plot: bool = False, eval_only: bool | None = False) -> None:
+    def __init__(self, *, plot: bool = False, eval_only: bool | None = False, save: bool | None = False) -> None:
         """Instantiates a new 3D thermoelastic model.
 
         Args:
@@ -48,6 +50,36 @@ class FeaModel3D:
         """
         self.plot = plot
         self.eval_only = eval_only
+        self.save = save
+        self.save_dir = '/Users/gapaza/repos/ideal/structural-thermal-3d/designs'
+
+    # -----------------------------
+    # Save / load design
+    # -----------------------------
+    def save_design(self, bcs: dict[str, Any], design: np.ndarray) -> None:
+        """Save design to a .pickle file."""
+        save_object = {"bcs": bcs, "design": design}
+        hash_str = hash_conditions(bcs)
+        filename = os.path.join(self.save_dir, f"design_{hash_str}.pickle")
+        with open(filename, "wb") as f:
+            pickle.dump(save_object, f)
+
+    def load_design(self, filename: str) -> tuple[dict[str, Any], np.ndarray]:
+        """Load design from a .pickle file."""
+        with open(filename, "rb") as f:
+            loaded_object = pickle.load(f)
+        return loaded_object["bcs"], loaded_object["design"]
+
+    def load_design_from_bcs(self, bcs: dict[str, Any]) -> tuple[dict[str, Any], np.ndarray]:
+        """Load design from a .pickle file."""
+        hash_str = hash_conditions(bcs)
+        filename = os.path.join(self.save_dir, f"design_{hash_str}.pickle")
+        # check if file exists
+        if not os.path.isfile(filename):
+            return bcs, None
+        with open(filename, "rb") as f:
+            loaded_object = pickle.load(f)
+        return loaded_object["bcs"], loaded_object["design"]
 
     # -----------------------------
     # Initial design (3D voxel grid)
@@ -121,6 +153,11 @@ class FeaModel3D:
             - 'heatsink_elements'
             - optional 'force_elements_x', 'force_elements_y', 'force_elements_z'
         """
+
+        # Load existing design
+        if x_init is None:
+            _, x_init = self.load_design_from_bcs(bcs)
+
         # Weighting
         w1 = bcs.get("weight", 0.5)  # structural
         w2 = 1.0 - w1                # thermal
@@ -144,8 +181,8 @@ class FeaModel3D:
 
 
         # 2) Parameters
-        penal = 3.0
-        rmin = bcs.get("rmin", 1.1)
+        penal = 3.0                  # SIMP Penalty
+        rmin = bcs.get("rmin", 1.1)  # Minimum feature size
         E = 1.0
         nu = 0.3
         k = 1.0
@@ -167,13 +204,17 @@ class FeaModel3D:
         low = xmin
         upp = xmax
 
+        low_vec = None
+        upp_vec = None
+
         # 3) Element matrices
         ke, k_eth, c_ethm = self.get_matrices(nu, E, k, alpha)
 
         # 4) 3D filter
         H, hs = self.get_filter(nelx, nely, nelz, rmin)
 
-        print("Starting 3D optimization...")
+        hash_str = hash_conditions(bcs)
+        print("Starting 3D optimization for:", hash_str)
 
         # 5) Loop
         f0valm = 0.0
@@ -191,7 +232,7 @@ class FeaModel3D:
 
             km = res.km
             kth = res.kth
-            um = res.um
+            um = res.um  # structural displacements
             uth = res.uth
             fm = res.fm
             fth = res.fth
@@ -216,15 +257,17 @@ class FeaModel3D:
 
             # Recomputing lamm directly (only if force depends on design, which it does not here) TODO: solver change here
             # lamm_free = spsolve(km_ff, rhs_m)
+            # lamm_free = solve_spd_with_amg(km_ff, rhs_m)
             # lamm = np.zeros(ndofm, dtype=float)
             # lamm[freedofsm] = lamm_free
             lamm = -um
+            # lamm = -w1 * um
 
             # Thermal adjoint: K_th * lambda_th = (lamm^T - um^T) * d_cthm - f_th TODO: solver change here
             # (vector on thermal dofs)
-            # temp = (lamm @ d_cthm - um @ d_cthm) - fth
-            # lamth = spsolve(kth.tocsc(), temp)
-            lamth = solve_spd_with_amg(kth.tocsr(), (lamm @ d_cthm - um @ d_cthm) - fth)
+            # lamth = solve_spd_with_amg(kth.tocsr(), (lamm @ d_cthm - um @ d_cthm) - fth)
+            rhs_th = d_cthm.T @ (lamm - um) - fth
+            lamth = solve_spd_with_amg(kth.tocsr(), rhs_th)
 
             t_adjoints = time.time() - tcur
             tcur = time.time()
@@ -268,23 +311,43 @@ class FeaModel3D:
 
                         ue = um[edof24]          # (24,)
                         the = uth[edof8]         # (8,)
+
+                        lamme = lamm[edof24]  # (24,)
                         lamthe = lamth[edof8]    # (8,)
+
 
                         x_e = x[ely, elx, elz]
                         x_p = x_e ** penal
                         x_p_minus1 = penal * (x_e ** (penal - 1))
 
-                        # Element contributions
+                        x_fac = penal * (x_e ** (penal - 1))
+
+                        term_direct = ue @ (c_ethm @ the)                 # Ue' * C * the
+                        term_mech = lamme @ ((ke @ ue) - (c_ethm @ the))  # lam_m' * (Ke*ue - C*the)
+                        term_therm = lamthe @ (k_eth @ the)               # lam_t' * (Kth*the)
+
+                        df0dx_mat[ely, elx, elz] = x_fac * (term_direct + term_mech + term_therm)
+
                         f0valm += x_p * (ue @ (ke @ ue))
                         f0valt += x_p * (the @ (k_eth @ the))
 
-                        # Sensitivities (weighted later)
-                        df0dx_m[ely, elx, elz] = -x_p_minus1 * (ue @ (ke @ ue))
-                        df0dx_t[ely, elx, elz] = lamthe @ (x_p_minus1 * (k_eth @ the))
+                        # # Element contributions
+                        # f0valm += x_p * (ue @ (ke @ ue))
+                        # f0valt += x_p * (the @ (k_eth @ the))
+                        #
+                        # # Sensitivities (weighted later)
+                        # df0dx_m[ely, elx, elz] = -x_p_minus1 * (ue @ (ke @ ue))
+                        #
+                        # # df0dx_t[ely, elx, elz] = lamthe @ (x_p_minus1 * (k_eth @ the))
+                        # df0dx_t[ely, elx, elz] = -x_p_minus1 * (the @ (k_eth @ the))
 
-                        # (df0dx_mat is formed after weighting)
-            f0val = w1 * f0valm + w2 * f0valt
-            df0dx_mat = w1 * df0dx_m + w2 * df0dx_t
+            # f0val = w1 * f0valm + w2 * f0valt
+            # df0dx_mat = w1 * df0dx_m + w2 * df0dx_t
+
+            f0val = f0valm + f0valt
+
+
+
 
             if self.eval_only:
                 vf_error = abs(np.mean(x) - volfrac)
@@ -308,8 +371,9 @@ class FeaModel3D:
             tcur = time.time()
 
             # MMA update
-            upp_vec = np.ones((n,), dtype=float) * upp
-            low_vec = np.ones((n,), dtype=float) * low
+            if low_vec is None or upp_vec is None:
+                upp_vec = np.ones((n,), dtype=float) * upp
+                low_vec = np.ones((n,), dtype=float) * low
 
             mmainputs = MMAInputs(
                 m=1,
@@ -331,7 +395,12 @@ class FeaModel3D:
                 d=d[0],
                 f0val=f0val,
             )
-            xmma = mmasub(mmainputs)
+            xmma, low_vec, upp_vec = mmasub(mmainputs)
+
+            # reshape low_vec to (-1,)
+            low_vec = np.squeeze(low_vec)
+            upp_vec = np.squeeze(upp_vec)
+            # print(low_vec.shape)
 
             # Shift history
             if iterr > SECOND_ITERATION_THRESHOLD:
@@ -355,6 +424,9 @@ class FeaModel3D:
                 f"Vol.: {np.sum(x)/(nelx*nely*nelz):6.3f} ch.: {change:6.3f} "
                 f"|| t_forward:{t_forward:6.3f} + t_adj:{t_adjoints:6.3f} + t_sens:{t_sens:6.3f} + t_mma:{t_mma:6.3f} = {t_total:6.3f}"
             )
+
+            if self.save is True:
+                self.save_design(bcs, x)
 
             if iterr > MAX_ITERATIONS:
                 break
@@ -428,27 +500,29 @@ if __name__ == '__main__':
         ("force_elements_z", foce_elements_z_matrix),
         ("heatsink_elements", heatsink_elements_matrix),
 
-        # Elastic
-        ("volfrac", 0.1),
-        ("rmin", 1.5),
-        ("weight", 1.0),  # 1.0 for pure structural, 0.0 for pure thermal
+        # # Elastic
+        # ("volfrac", 0.1),
+        # ("rmin", 1.5),
+        # ("weight", 1.0),  # 1.0 for pure structural, 0.0 for pure thermal
 
         # # Thermal
         # ("volfrac", 0.2),
         # ("rmin", 1.5),
         # ("weight", 0.0),  # 1.0 for pure structural, 0.0 for pure thermal
 
-        # # Thermo-elastic
-        # ("volfrac", 0.2),
-        # ("rmin", 1.5),
-        # ("weight", 0.5),  # 1.0 for pure structural, 0.0 for pure thermal
+        # Thermo-elastic
+        ("volfrac", 0.2),
+        ("rmin", 1.5),
+        ("weight", 0.5),  # 1.0 for pure structural, 0.0 for pure thermal
 
     )
     conditions = dict(conditions)
 
+    # starting_point = None
     starting_point = conditions['volfrac'] * np.ones((nelx, nely, nelz), dtype=float)
+    # starting_point = 0.5 * np.ones((nelx, nely, nelz), dtype=float)
 
-    results = FeaModel3D(plot=True, eval_only=False).run(conditions, x_init=starting_point)
+    results = FeaModel3D(plot=True, eval_only=False, save=True).run(conditions, x_init=starting_point)
 
 
 

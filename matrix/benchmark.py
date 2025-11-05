@@ -4,7 +4,7 @@ import numpy as np
 from scipy.sparse import load_npz, csr_matrix
 import time
 
-from utils.linear_solver import solve_spd_with_amg
+from utils.linear_solver import solve_spd_with_amg, solve_spd_with_amg2
 from utils.linear_solver import solve_with_spsolve
 from utils.linear_solver import solve_with_pardiso
 from utils.linear_solver import solve_with_mumps
@@ -14,11 +14,11 @@ from utils.linear_solver import solve_with_mumps
 
 def run():
 
-    # path_A = '/Users/gapaza/repos/ideal/structural-thermal-3d/matrix/store/A.npz'
-    # path_b = '/Users/gapaza/repos/ideal/structural-thermal-3d/matrix/store/b.npy'
+    path_A = '/Users/gapaza/repos/ideal/structural-thermal-3d/matrix/store/A.npz'
+    path_b = '/Users/gapaza/repos/ideal/structural-thermal-3d/matrix/store/b.npy'
 
-    path_A = '/home/gapaza/scratch/repos/structural-thermal-3d/matrix/store/A.npz'
-    path_b = '/home/gapaza/scratch/repos/structural-thermal-3d/matrix/store/b.npy'
+    # path_A = '/home/gapaza/scratch/repos/structural-thermal-3d/matrix/store/A.npz'
+    # path_b = '/home/gapaza/scratch/repos/structural-thermal-3d/matrix/store/b.npy'
 
     arr_A = load_npz(path_A)  # csr_matrix
     arr_b = np.load(path_b)   # ndarray
@@ -29,26 +29,17 @@ def run():
 
     ### MAC
     # x = solve_spd_with_amg(arr_A, arr_b)  # 36 seconds (mac)
+    x = solve_spd_with_amg2(arr_A, arr_b)  #
     # x = solve_with_spsolve(arr_A, arr_b)    # many minutes (mac)
 
     ### HPC
     # x = solve_with_spsolve(arr_A, arr_b)    # many minutes
-    x = solve_with_pardiso(arr_A, arr_b)  
+    # x = solve_with_pardiso(arr_A, arr_b)
 
 
 
     t_elapsed = time.time() - t0
     print(f"Solved in {t_elapsed:.4f} seconds.")
-
-
-
-
-
-
-
-
-
-
 
 
 
