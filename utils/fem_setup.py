@@ -239,3 +239,26 @@ def fe_mthm_bc_3d(  # noqa: PLR0915, PLR0913
         freedofsth=freedofsth,
         fp=fp,
     )
+
+
+def fe_mthm_bc_3d_abacus(  # noqa: PLR0915, PLR0913
+    nely: int,
+    nelx: int,
+    nelz: int,
+    penal: float,
+    x: np.ndarray,                # shape: (nely, nelx, nelz)
+    ke: np.ndarray,               # (24, 24)  from fe_melthm_3d
+    k_eth: np.ndarray,            # (8, 8)    from fe_melthm_3d
+    c_ethm: np.ndarray,           # (24, 8)   from fe_melthm_3d
+    tref: float,
+    bcs: dict[str, Any],
+) -> FEMthmBCResult3D:
+    """
+    Assemble and solve the 3D coupled thermo-elastic FE systems for topology optimization.
+    Uses Hex8 elements, 1 thermal DOF/node, 3 mechanical DOF/node.
+    """
+    return FEMthmBCResult3D()
+
+
+
+

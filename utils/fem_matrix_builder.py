@@ -124,6 +124,34 @@ def fe_melthm_3d(nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarra
     return ke, k_eth, c_ethm
 
 
+def fe_melthm_3d_abacus(nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Build 3D Hex8 element matrices for thermo-elasticity:
+      - ke    : 24x24 mechanical stiffness (Hex8, 3 dof/node)
+      - k_eth :  8x8 thermal conductivity (Hex8, 1 dof/node)
+      - c_ethm: 24x8 coupling mapping nodal temperatures to equivalent mechanical forces
+
+    Assumptions:
+      - Isotropic linear elasticity and isotropic thermal conductivity.
+      - Reference Hex8 element over [-1, 1]^3 with a unit-cube physical mapping.
+      - 2x2x2 Gauss integration.
+      - Thermal strain = alpha * ΔT * [1, 1, 1, 0, 0, 0]^T (Voigt).
+
+    Args:
+        nu (float): Poisson's ratio
+        E (float): Young's modulus
+        k (float): Thermal conductivity (isotropic)
+        alpha (float): Coefficient of thermal expansion
+
+    Returns:
+        (ke, k_eth, c_ethm)
+    """
+    return None, None, None
+
+
+
+
+
 
 
 if __name__ == '__main__':

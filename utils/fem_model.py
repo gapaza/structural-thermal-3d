@@ -17,8 +17,8 @@ from utils.mma_subroutine import MMAInputs, mmasub
 # (adjust imports to your actual module locations)
 # from engibench.problems.thermoelastic3d.model.fem_matrix_builder import fe_melthm_3d
 # from engibench.problems.thermoelastic3d.model.fem_setup import fe_mthm_bc_3d
-from utils.fem_matrix_builder import fe_melthm_3d
-from utils.fem_setup import fe_mthm_bc_3d
+from utils.fem_matrix_builder import fe_melthm_3d, fe_melthm_3d_abacus
+from utils.fem_setup import fe_mthm_bc_3d, fe_mthm_bc_3d_abacus
 
 # For this snippet assume they are in scope:
 # def fe_melthm_3d(nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
@@ -94,6 +94,10 @@ class FeaModel3D:
     def get_matrices(self, nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return (ke 24x24, k_eth 8x8, c_ethm 24x8) for Hex8."""
         return fe_melthm_3d(nu, E, k, alpha)
+
+    def get_matrices_abacus(self, nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarray, np.ndarray]:
+        """Return (ke 24x24, k_eth 8x8, c_ethm 24x8) for Hex8."""
+        return fe_melthm_3d_abacus(nu, E, k, alpha)
 
     # -----------------------------
     # 3D sensitivity filter
@@ -207,8 +211,12 @@ class FeaModel3D:
         low_vec = None
         upp_vec = None
 
+        """
+        ABAQUS HOOK: Use abaqus' local element matrices
+        """
         # 3) Element matrices
-        ke, k_eth, c_ethm = self.get_matrices(nu, E, k, alpha)
+        # ke, k_eth, c_ethm = self.get_matrices(nu, E, k, alpha)
+        ke, k_eth, c_ethm = self.get_matrices_abacus(nu, E, k, alpha)
 
         # 4) 3D filter
         H, hs = self.get_filter(nelx, nely, nelz, rmin)
@@ -227,8 +235,12 @@ class FeaModel3D:
             t0 = time.time()
             tcur = t0
 
+            """
+            ABAQUS HOOK: Solve the linear systems using the Abaqus solver
+            """
             # Forward FEA with BCs & assembly (3D)
             res = fe_mthm_bc_3d(nely, nelx, nelz, penal, x, ke, k_eth, c_ethm, tref, bcs)
+            # res = fe_mthm_bc_3d_abacus(nely, nelx, nelz, penal, x, ke, k_eth, c_ethm, tref, bcs)
 
             km = res.km
             kth = res.kth
