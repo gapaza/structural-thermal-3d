@@ -217,6 +217,8 @@ def fe_mthm_bc_3d(  # noqa: PLR0915, PLR0913
         # np.save(save_path_b, arr_b)
         # exit(0)
 
+        # f = K u
+
         um_free = solve_spd_with_amg(km[freedofsm, :][:, freedofsm].tocsr(), fm[freedofsm])
         um = np.zeros(ndofsm)
         um[freedofsm] = um_free

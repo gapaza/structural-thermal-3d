@@ -215,8 +215,8 @@ class FeaModel3D:
         ABAQUS HOOK: Use abaqus' local element matrices
         """
         # 3) Element matrices
-        # ke, k_eth, c_ethm = self.get_matrices(nu, E, k, alpha)
-        ke, k_eth, c_ethm = self.get_matrices_abacus(nu, E, k, alpha)
+        ke, k_eth, c_ethm = self.get_matrices(nu, E, k, alpha)
+        # ke, k_eth, c_ethm = self.get_matrices_abacus(nu, E, k, alpha)
 
         # 4) 3D filter
         H, hs = self.get_filter(nelx, nely, nelz, rmin)
