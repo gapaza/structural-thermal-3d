@@ -1,35 +1,33 @@
 from math import ceil
-from math import hypot
 import time
 from typing import Any
 import os
 
 import numpy as np
 from scipy.sparse import coo_matrix
-from scipy.sparse.linalg import spsolve
 
 # Reuse your existing MMA wrapper
 # from engibench.core import OptiStep
 # from engibench.problems.thermoelastic2d.model.mma_subroutine import MMAInputs, mmasub
-from utils.mma_subroutine import MMAInputs, mmasub
+from D3.utils.mma_subroutine import MMAInputs, mmasub
 
 # The new 3D element builder and 3D assembly/BC routine you now have
 # (adjust imports to your actual module locations)
 # from engibench.problems.thermoelastic3d.model.fem_matrix_builder import fe_melthm_3d
 # from engibench.problems.thermoelastic3d.model.fem_setup import fe_mthm_bc_3d
-from utils.fem_matrix_builder import fe_melthm_3d, fe_melthm_3d_abacus
-from utils.fem_setup import fe_mthm_bc_3d, fe_mthm_bc_3d_abacus
+from D3.utils.fem_matrix_builder import fe_melthm_3d, fe_melthm_3d_abacus
+from D3.utils.fem_setup import fe_mthm_bc_3d, fe_mthm_bc_3d_abacus
 
 # For this snippet assume they are in scope:
 # def fe_melthm_3d(nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
 # def fe_mthm_bc_3d(...): ...
 
 
-from utils.fem_plotting import plot_fem_3d
-from utils.linear_solver import solve_spd_with_amg
+from D3.utils.fem_plotting import plot_fem_3d
+from D3.utils.linear_solver import solve_spd_with_amg
 
 import pickle
-from utils.hashing import hash_conditions
+from D3.utils.hashing import hash_conditions
 
 SECOND_ITERATION_THRESHOLD = 2
 FIRST_ITERATION_THRESHOLD = 1
@@ -51,7 +49,7 @@ class FeaModel3D:
         self.plot = plot
         self.eval_only = eval_only
         self.save = save
-        self.save_dir = '/Users/gapaza/repos/ideal/structural-thermal-3d/designs'
+        self.save_dir = '/designs'
 
     # -----------------------------
     # Save / load design

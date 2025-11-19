@@ -1,21 +1,19 @@
-import config
-
 import numpy as np
-from scipy.sparse import load_npz, csr_matrix
+from scipy.sparse import load_npz
 import time
 
-from utils.linear_solver import solve_spd_with_amg, solve_spd_with_amg2
-from utils.linear_solver import solve_with_spsolve
-from utils.linear_solver import solve_with_pardiso
-from utils.linear_solver import solve_with_mumps
+from D3.utils.linear_solver import solve_spd_with_amg, solve_spd_with_amg2
+from D3.utils.linear_solver import solve_with_spsolve
+from D3.utils.linear_solver import solve_with_pardiso
+from D3.utils.linear_solver import solve_with_mumps
 
 
 
 
 def run():
 
-    path_A = '/Users/gapaza/repos/ideal/structural-thermal-3d/matrix/store/A.npz'
-    path_b = '/Users/gapaza/repos/ideal/structural-thermal-3d/matrix/store/b.npy'
+    path_A = '/3D/matrix/store/A.npz'
+    path_b = '/3D/matrix/store/b.npy'
 
     # path_A = '/home/gapaza/scratch/repos/structural-thermal-3d/matrix/store/A.npz'
     # path_b = '/home/gapaza/scratch/repos/structural-thermal-3d/matrix/store/b.npy'

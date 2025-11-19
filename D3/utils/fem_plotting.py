@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # load_path = '/Users/gapaza/repos/ideal/structural-thermal-3d/designs/design_bf8a708a486830e811951ab5e13af7b7_struct.pickle'
     # load_path = '/Users/gapaza/repos/ideal/structural-thermal-3d/designs/design_de928d7d414419b62df312bc3e680755.pickle'
     # load_path = '/Users/gapaza/repos/ideal/structural-thermal-3d/designs/design_581670c78831a3f9b159576550257861.pickle'
-    load_path = '/Users/gapaza/repos/ideal/structural-thermal-3d/designs/design_de928d7d414419b62df312bc3e680755.pickle'
+    load_path = '/designs/design_de928d7d414419b62df312bc3e680755.pickle'
 
     with open(load_path, 'rb') as f:
         data = pickle.load(f)

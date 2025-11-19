@@ -1,11 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, Tuple
-import time
+from typing import Any
 
 import numpy as np
-from scipy.sparse import coo_matrix, csr_matrix, lil_matrix
-from scipy.sparse.linalg import spsolve
-from utils.linear_solver import solve_spd_with_amg
+from scipy.sparse import coo_matrix, csr_matrix
+from D3.utils.linear_solver import solve_spd_with_amg
 
 
 
