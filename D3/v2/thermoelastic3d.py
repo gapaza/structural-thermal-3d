@@ -782,8 +782,8 @@ if __name__ == '__main__':
 
 
     # Datagen Setup
-    # nelx, nely, nelz = 100, 40, 16
-    nelx, nely, nelz = 20, 20, 20
+    nelx, nely, nelz = 100, 40, 16
+    # nelx, nely, nelz = 20, 20, 20
     args = parse_arguments()
     volfrac = float(args.volume_fraction)
     penal = 3.0
