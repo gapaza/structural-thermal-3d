@@ -782,8 +782,8 @@ if __name__ == '__main__':
 
 
     # Datagen Setup
-    # nelx, nely, nelz = 100, 40, 16
-    nelx, nely, nelz = 20, 20, 20
+    nelx, nely, nelz = 100, 40, 16
+    # nelx, nely, nelz = 20, 20, 20
     args = parse_arguments()
     volfrac = float(args.volume_fraction)
     penal = 3.0
@@ -800,7 +800,7 @@ if __name__ == '__main__':
         nelx, nely, nelz,
         volfrac, penal, rmin,
         iter_solve=True,
-        fname='test_design.npz',
+        fname=fname,
         el_weight=el_weight,
         plot=plot
     )
