@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=pretrain_study13
+#SBATCH --job-name=datagen_3d_v1
 #SBATCH --output=logs/datagen_3d_%j.out
 #SBATCH --error=logs/datagen_3d_%j.err
 #SBATCH --time=15:00:00
@@ -12,16 +12,16 @@ module load openblas/0.3.23/gcc/11.3.0/x86_64
 module load python/3.10.10/gcc/11.3.0/cuda/12.3.0/linux-rhel8-x86_64
 
 # Activate virtual environment
-source /home/gapaza/scratch/repos/diffusion-top-rl/nvenv/bin/activate
+source /home/gapaza/scratch/environments/fem3d/bin/activate
 
 # Change directory
-cd /home/gapaza/scratch/repos/diffusion-top-rl
+cd /home/gapaza/scratch/repos/structural-thermal-3d
 
 # Get input argument
-DATAPOINTS=$1
+VOLFRAC=$1
+WEIGHT=$2
+FILENAME=$3
 
-# Get pass argument
-PASS=$2
-
-# Run the training script
-python3 -m studies.study13.gradient.pretrain --datapoints $DATAPOINTS --pass_number $PASS
+# Run the script
+#python3 -m D3.v2.thermoelastic3d --volume_fraction 0.3 --weight 0.5 --fname "test_design"
+python3 -m D3.v2.thermoelastic3d --volume_fraction $VOLFRAC --weight $WEIGHT --fname $FILENAME

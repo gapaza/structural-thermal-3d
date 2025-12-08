@@ -1,6 +1,5 @@
 import numpy as np
 from math import ceil
-import napari
 import time
 import os
 import sys
@@ -32,7 +31,8 @@ from element.thermoelastic_weak_3d import get_stiffness_matrices
 # 3. Optimization Class
 # ==========================================
 
-NUMPY_SAVE_DIR = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs'
+# NUMPY_SAVE_DIR = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs'
+NUMPY_SAVE_DIR = '/home/gapaza/scratch/repos/structural-thermal-3d/D3/v2/designs'
 
 
 class ThermoelasticTopologyOptimization3D:
@@ -723,6 +723,7 @@ class ThermoelasticTopologyOptimization3D:
 
 
         if self.plot is True:
+            import napari
             viewer = napari.Viewer()
             viewer.add_image(design, name='rho', rendering='attenuated_mip')
             viewer.add_image(fixed_el_nodes, name='fixed_elements', rendering='attenuated_mip', visible=False, colormap='green')
@@ -777,7 +778,7 @@ if __name__ == '__main__':
     rmin = 1.5
     el_weight = 0.5
     fname = 'test_design.npz'
-    plot = True
+    plot = False
 
 
     # # Datagen Setup
