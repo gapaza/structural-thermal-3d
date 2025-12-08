@@ -3,6 +3,8 @@ from math import ceil
 import napari
 import time
 import os
+import sys
+import argparse
 from scipy.sparse import coo_matrix, linalg
 from scipy.sparse.linalg import spsolve
 
@@ -30,9 +32,11 @@ from element.thermoelastic_weak_3d import get_stiffness_matrices
 # 3. Optimization Class
 # ==========================================
 
+NUMPY_SAVE_DIR = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs'
+
 
 class ThermoelasticTopologyOptimization3D:
-    def __init__(self, nelx, nely, nelz, volfrac, penal, rmin, lx=1.0, ly=1.0, lz=1.0, iter_solve=False):
+    def __init__(self, nelx, nely, nelz, volfrac, penal, rmin, lx=1.0, ly=1.0, lz=1.0, iter_solve=False, fname='design.npz', el_weight=0.5, plot=False):
         self.nelx = nelx
         self.nely = nely
         self.nelz = nelz
@@ -42,6 +46,10 @@ class ThermoelasticTopologyOptimization3D:
         self.lx = lx
         self.ly = ly
         self.lz = lz
+        self.fname = fname
+        self.el_weight = el_weight
+        self.th_weight = 1.0 - el_weight
+        self.plot = plot
 
         if iter_solve is False:
             self.sparse_solver = spsolve
@@ -398,7 +406,7 @@ class ThermoelasticTopologyOptimization3D:
         # --- B. Mechanical Equilibrium ---
 
         # 1. Loaded DOFs
-        mechanical_load = 0.001
+        mechanical_load = -0.001
         # loaded_el_nodes = np.array([node_TF_BR])
         loaded_el_nodes = nodes_TF
         loaded_el_nodes_dof_x = (3 * loaded_el_nodes) + 0
@@ -527,7 +535,8 @@ class ThermoelasticTopologyOptimization3D:
         # Ideally, pass f_heat or calculate T.Kt.T directly:
         obj_therm = np.dot(T1, K_therm @ T1)
 
-        obj_total = obj_mech + obj_therm
+        # obj_total = obj_mech + obj_therm
+        obj_total = (self.el_weight * obj_mech) + (self.th_weight * obj_therm)
         # print('Mech objective', obj_mech, '| Thermal objective', obj_therm)
 
         # --- 2. Solve Thermal Adjoint Equation ---
@@ -593,7 +602,8 @@ class ThermoelasticTopologyOptimization3D:
         term3_coup = 2.0 * coupling_prod * dE
 
         # --- 4. Total Gradient ---
-        dc = term1_mech + term2_therm + term3_coup
+        # dc = term1_mech + term2_therm + term3_coup
+        dc = (self.el_weight * (term1_mech + term3_coup)) + (self.th_weight * term2_therm)
 
         return dc, obj_total, obj_mech, obj_therm
 
@@ -667,15 +677,13 @@ class ThermoelasticTopologyOptimization3D:
                 print("Convergence reached.")
                 break
 
-            if (k+1) % 20 == 0:
-                self.plot()
+            if (k+1) % 50 == 0:
+                self.save()
+
+        self.save()
 
 
-
-        self.plot()
-
-
-    def plot(self):
+    def save(self):
         # design = np.reshape(self.x, (self.nelx, self.nely, self.nelz))
         design = np.reshape(self.x, (self.nelz, self.nelx, self.nely))
 
@@ -701,9 +709,8 @@ class ThermoelasticTopologyOptimization3D:
         # loaded_el_nodes = np.reshape(loaded_el_nodes, (self.nelx + 1, self.nely + 1, self.nelz + 1))
         loaded_el_nodes = np.reshape(loaded_el_nodes, (self.nelz + 1, self.nelx + 1, self.nely + 1))
 
-
         # Now save all these to a numpy .npz file
-        numpy_file = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs/design_v2.npz'
+        numpy_file = os.path.join(NUMPY_SAVE_DIR, self.fname)
         np.savez(
             numpy_file,
             design=design,
@@ -715,42 +722,86 @@ class ThermoelasticTopologyOptimization3D:
         print(f"Successfully saved all arrays to: {numpy_file}")
 
 
-
-        viewer = napari.Viewer()
-        viewer.add_image(design, name='rho', rendering='attenuated_mip')
-
-        viewer.add_image(fixed_el_nodes, name='fixed_elements', rendering='attenuated_mip', visible=False, colormap='green')
-        viewer.add_image(loaded_el_nodes, name='force_elements', rendering='attenuated_mip', visible=False, colormap='fire')
-
-        viewer.add_image(fixed_therm_nodes, name='heatsink_elements', rendering='attenuated_mip', visible=False, colormap='purple')
-        viewer.add_image(heat_gen_nodes, name='heat_gen_elements', rendering='attenuated_mip', visible=False, colormap='blue')
-
-        viewer.dims.ndisplay = 3  # switch to 3D view
-        napari.run()
+        if self.plot is True:
+            viewer = napari.Viewer()
+            viewer.add_image(design, name='rho', rendering='attenuated_mip')
+            viewer.add_image(fixed_el_nodes, name='fixed_elements', rendering='attenuated_mip', visible=False, colormap='green')
+            viewer.add_image(loaded_el_nodes, name='force_elements', rendering='attenuated_mip', visible=False, colormap='fire')
+            viewer.add_image(fixed_therm_nodes, name='heatsink_elements', rendering='attenuated_mip', visible=False, colormap='purple')
+            viewer.add_image(heat_gen_nodes, name='heat_gen_elements', rendering='attenuated_mip', visible=False, colormap='blue')
+            viewer.dims.ndisplay = 3  # switch to 3D view
+            napari.run()
 
 
 
 
 
 
-
+def parse_arguments():
+    """
+    Parses command-line arguments using the argparse module.
+    """
+    parser = argparse.ArgumentParser(
+        description="A program to process material properties and a filename."
+    )
+    parser.add_argument(
+        'volume_fraction',
+        type=float,
+        help='The volume fraction (a floating-point number).',
+        default=0.3
+    )
+    parser.add_argument(
+        'weight',
+        type=float,
+        help='The weight value (a floating-point number).',
+        default=0.5
+    )
+    parser.add_argument(
+        'fname',
+        type=str,
+        help='The output filename (a string).',
+        default='test_design'
+    )
+    args = parser.parse_args()
+    return args
 
 
 
 
 if __name__ == '__main__':
-    # epd = 100
-    # nelx, nely, nelz = epd, epd, epd
-    # 747 seconds per iteration
 
-    nelx, nely, nelz = 100, 40, 16
-
-
+    # Testing Setup
+    nelx, nely, nelz = 20, 20, 20
     volfrac = 0.3
     penal = 3.0
     rmin = 1.5
+    el_weight = 0.5
+    fname = 'test_design.npz'
+    plot = True
 
-    opt = ThermoelasticTopologyOptimization3D(nelx, nely, nelz, volfrac, penal, rmin, iter_solve=True)
+
+    # # Datagen Setup
+    # nelx, nely, nelz = 100, 40, 16
+    # args = parse_arguments()
+    # volfrac = args.volume_fraction
+    # penal = 3.0
+    # rmin = 1.5
+    # el_weight = args.weight
+    # fname = args.fname + '.npz'
+    # plot = False
+
+
+
+
+
+    opt = ThermoelasticTopologyOptimization3D(
+        nelx, nely, nelz,
+        volfrac, penal, rmin,
+        iter_solve=True,
+        fname='test_design.npz',
+        el_weight=el_weight,
+        plot=plot
+    )
 
     opt.optimize(max_iter=200)
 
