@@ -18,6 +18,7 @@ def fe_melthm_3d(nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarra
         E (float): Young's modulus
         k (float): Thermal conductivity (isotropic)
         alpha (float): Coefficient of thermal expansion
+        lx, ly, lz: Physical dimensions of the element in x, y, z.
 
     Returns:
         (ke, k_eth, c_ethm)
@@ -54,19 +55,17 @@ def fe_melthm_3d(nu: float, E: float, k: float, alpha: float) -> tuple[np.ndarra
     detJ = np.linalg.det(J)            # = 0.125
     invJ = np.linalg.inv(J)            # = diag(2,2,2)
 
-    # --- Elasticity matrix (Voigt 6x6) for 3D isotropic ---
-    lam = E*nu / ((1+nu)*(1-2*nu))
-    mu  = E / (2*(1+nu))
-    D = np.array([
-        [lam+2*mu, lam,       lam,       0,   0,   0],
-        [lam,       lam+2*mu, lam,       0,   0,   0],
-        [lam,       lam+2*mu, lam+2*mu,  0,   0,   0],  # <- typo fixed: [2,2] should be lam+2mu
-        [0,         0,        0,         mu,  0,   0],
-        [0,         0,        0,         0,   mu,  0],
-        [0,         0,        0,         0,   0,   mu],
-    ], dtype=float)
-    # fix typo in [2,1] above:
-    D[2,1] = lam
+    # --- Elasticity matrix (Voigt 6x6) ---
+    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+    mu = E / (2 * (1 + nu))
+
+    D = np.zeros((6, 6))
+    # Fill upper-left 3x3 with lambda
+    D[:3, :3] = lam
+    # Add 2*mu to the diagonal of the upper-left 3x3
+    D[:3, :3] += 2 * mu * np.eye(3)
+    # Fill lower-right 3x3 diagonal with shear modulus mu
+    D[3:, 3:] = np.diag([mu, mu, mu])
 
     # Thermal "volumetric" strain direction in Voigt
     e_th = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
@@ -163,9 +162,25 @@ if __name__ == '__main__':
 
     ke, k_eth, c_ethm = fe_melthm_3d(nu, e, k, alpha)
 
-    print("Mechanical stiffness ke:\n", ke)                  # shape: (24, 24)
-    print("\nThermal conductivity k_eth:\n", k_eth)          # shape: (8, 8)
-    print("\nThermo-mechanical coupling c_ethm:\n", c_ethm)  # shape: (24, 8)
+    # print("Mechanical stiffness ke:\n", ke)                  # shape: (24, 24)
+    # print("\nThermal conductivity k_eth:\n", k_eth)          # shape: (8, 8)
+    # print("\nThermo-mechanical coupling c_ethm:\n", c_ethm)  # shape: (24, 8)
+
+    # from D3.utils.fem_matrix_builder2 import fe_melthm_3d_flexible
+    # ke2 = fe_melthm_3d_flexible(nu, e, lx=1, ly=1, lz=1)
+    # ke_diff = ke2 - ke
+    # print('Diff', ke_diff)
+    # print(np.allclose(ke2, ke))
+
+    from D3.utils.fem_matrix_builder3 import fe_melthm_3d as fe_melthm_3d_v2
+    ke2, k_eth2, c_ethm2 = fe_melthm_3d_v2(nu, e, k, alpha, lx=1, ly=1, lz=1)
+
+    print(np.allclose(ke, ke2))
+    print(np.allclose(k_eth, k_eth2))
+    print(np.allclose(c_ethm, c_ethm2))
+
+
+
 
 
 

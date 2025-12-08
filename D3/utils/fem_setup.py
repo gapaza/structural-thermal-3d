@@ -75,7 +75,7 @@ def fe_mthm_bc_3d(  # noqa: PLR0915, PLR0913
     # ---------------------------
     # element indices
     ex, ey, ez = np.meshgrid(
-        np.arange(nelx), np.arange(nely), np.arange(nelz), indexing="ij"
+        np.arange(nely), np.arange(nelx), np.arange(nelz), indexing="ij"
     )
     ex = ex.ravel()
     ey = ey.ravel()

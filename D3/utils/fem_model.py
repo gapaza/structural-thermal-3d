@@ -2,7 +2,6 @@ from math import ceil
 import time
 from typing import Any
 import os
-
 import numpy as np
 from scipy.sparse import coo_matrix
 
@@ -156,9 +155,9 @@ class FeaModel3D:
             - optional 'force_elements_x', 'force_elements_y', 'force_elements_z'
         """
 
-        # Load existing design
-        if x_init is None:
-            _, x_init = self.load_design_from_bcs(bcs)
+        # # Load existing design
+        # if x_init is None:
+        #     _, x_init = self.load_design_from_bcs(bcs)
 
         # Weighting
         w1 = bcs.get("weight", 0.5)  # structural
@@ -252,7 +251,7 @@ class FeaModel3D:
             fixeddofsth = res.fixeddofsth
             fp = res.fp
 
-            if self.plot is True and (iterr % 50 == 0):
+            if self.plot is True and (iterr % 25 == 0):
                 plot_fem_3d(bcs, x)
 
 
@@ -482,9 +481,9 @@ def indices_to_binary_matrix(indices: list[int], nelx: int, nely: int, nelz: int
 
 if __name__ == '__main__':
 
-    nelx = 64
-    nely = 64
-    nelz = 64
+    nelx = 16
+    nely = 16
+    nelz = 16
 
     fixed_elements_matrix = np.zeros((nelx + 1, nely + 1, nelz + 1), dtype=int)
     fixed_elements_matrix[0, 0, 0] = 1
@@ -510,20 +509,20 @@ if __name__ == '__main__':
         ("force_elements_z", foce_elements_z_matrix),
         ("heatsink_elements", heatsink_elements_matrix),
 
-        # # Elastic
-        # ("volfrac", 0.1),
-        # ("rmin", 1.5),
-        # ("weight", 1.0),  # 1.0 for pure structural, 0.0 for pure thermal
+        # Elastic
+        ("volfrac", 0.1),
+        ("rmin", 1.5),
+        ("weight", 1.0),  # 1.0 for pure structural, 0.0 for pure thermal
 
         # # Thermal
         # ("volfrac", 0.2),
         # ("rmin", 1.5),
         # ("weight", 0.0),  # 1.0 for pure structural, 0.0 for pure thermal
 
-        # Thermo-elastic
-        ("volfrac", 0.2),
-        ("rmin", 1.5),
-        ("weight", 0.5),  # 1.0 for pure structural, 0.0 for pure thermal
+        # # Thermo-elastic
+        # ("volfrac", 0.2),
+        # ("rmin", 1.5),
+        # ("weight", 0.5),  # 1.0 for pure structural, 0.0 for pure thermal
 
     )
     conditions = dict(conditions)
@@ -532,7 +531,7 @@ if __name__ == '__main__':
     starting_point = conditions['volfrac'] * np.ones((nelx, nely, nelz), dtype=float)
     # starting_point = 0.5 * np.ones((nelx, nely, nelz), dtype=float)
 
-    results = FeaModel3D(plot=True, eval_only=False, save=True).run(conditions, x_init=starting_point)
+    results = FeaModel3D(plot=True, eval_only=False, save=False).run(conditions, x_init=starting_point)
 
 
 
