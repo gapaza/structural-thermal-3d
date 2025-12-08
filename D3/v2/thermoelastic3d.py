@@ -771,25 +771,26 @@ def parse_arguments():
 
 if __name__ == '__main__':
 
-    # Testing Setup
-    nelx, nely, nelz = 20, 20, 20
-    volfrac = 0.3
-    penal = 3.0
-    rmin = 1.5
-    el_weight = 0.5
-    fname = 'test_design.npz'
-    plot = False
-
-
-    # # Datagen Setup
-    # nelx, nely, nelz = 100, 40, 16
-    # args = parse_arguments()
-    # volfrac = args.volume_fraction
+    # # Testing Setup
+    # nelx, nely, nelz = 20, 20, 20
+    # volfrac = 0.3
     # penal = 3.0
     # rmin = 1.5
-    # el_weight = args.weight
-    # fname = args.fname + '.npz'
+    # el_weight = 0.5
+    # fname = 'test_design.npz'
     # plot = False
+
+
+    # Datagen Setup
+    # nelx, nely, nelz = 100, 40, 16
+    nelx, nely, nelz = 20, 20, 20
+    args = parse_arguments()
+    volfrac = float(args.volume_fraction)
+    penal = 3.0
+    rmin = 1.5
+    el_weight = float(args.weight)
+    fname = str(args.fname) + '.npz'
+    plot = False
 
 
 
