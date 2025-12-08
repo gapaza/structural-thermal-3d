@@ -746,19 +746,19 @@ def parse_arguments():
         description="A program to process material properties and a filename."
     )
     parser.add_argument(
-        'volume_fraction',
+        '--volume_fraction',
         type=float,
         help='The volume fraction (a floating-point number).',
         default=0.3
     )
     parser.add_argument(
-        'weight',
+        '--weight',
         type=float,
         help='The weight value (a floating-point number).',
         default=0.5
     )
     parser.add_argument(
-        'fname',
+        '--fname',
         type=str,
         help='The output filename (a string).',
         default='test_design'
