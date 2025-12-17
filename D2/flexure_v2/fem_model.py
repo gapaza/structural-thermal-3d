@@ -75,6 +75,7 @@ def fe_melthm(nu: float, e: float, k: float, alpha: float) -> tuple[np.ndarray, 
 from D2.flexure_v2.flex_plot import plot_thermal_actuation
 
 class ThermalFlexureTopologyOptimization:
+
     def __init__(self, nelx, nely, volfrac, penal, rmin):
         self.nelx = nelx
         self.nely = nely

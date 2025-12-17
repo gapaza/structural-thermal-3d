@@ -5,7 +5,7 @@
 # -------------------------------------
 
 import numpy as np
-numpy_file = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs/voxel_design.npz'
+numpy_file = '/D3/v2/designs/voxel_design.npz'
 data = np.load(numpy_file)
 design = data['design']
 

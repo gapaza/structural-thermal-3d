@@ -4,7 +4,7 @@ import napari
 
 
 
-numpy_file = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs/design.npz'
+numpy_file = '/D3/v2/designs/design.npz'
 
 # Load numpy data
 

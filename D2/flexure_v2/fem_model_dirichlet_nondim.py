@@ -807,7 +807,7 @@ def run_thermal_analysis(optimizer, max_time_seconds=200, steps=100):
 
 if __name__ == "__main__":
     # Example Setup
-    nelx, nely = 64, 64
+    nelx, nely = 32, 32
     volfrac = 0.3
     penal = 3.0
     rmin = 3.0

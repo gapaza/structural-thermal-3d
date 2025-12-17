@@ -3,6 +3,7 @@ from math import ceil
 import time
 import os
 import sys
+from dataclasses import dataclass
 import argparse
 from scipy.sparse import coo_matrix, linalg
 from scipy.sparse.linalg import spsolve
@@ -20,7 +21,7 @@ from D2.flexure_v2.mma_subroutine import mmasub, MMAInputs
 
 
 # ==========================================
-# 2. Finite Element Helper
+# 2. Finite Element Helper / Materials
 # ==========================================
 
 from element.thermoelastic_weak_3d import get_stiffness_matrices
@@ -31,8 +32,8 @@ from element.thermoelastic_weak_3d import get_stiffness_matrices
 # 3. Optimization Class
 # ==========================================
 
-# NUMPY_SAVE_DIR = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs'
-NUMPY_SAVE_DIR = '/home/gapaza/scratch/repos/structural-thermal-3d/D3/v2/designs'
+NUMPY_SAVE_DIR = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs'
+# NUMPY_SAVE_DIR = '/home/gapaza/scratch/repos/structural-thermal-3d/D3/v2/designs'
 
 
 class ThermoelasticTopologyOptimization3D:
@@ -56,17 +57,19 @@ class ThermoelasticTopologyOptimization3D:
         else:
             self.sparse_solver = solve_spd_with_amg
 
-
         # Material Properties (Arbitrary units for example, polypropylene units in comments)
-        self.E0 = 1.0  # Young's Modulus (1.1e9 -> 1.1 GPa)
-        self.Emin = 1e-9  # Void stiffness
-        self.nu = 0.3  # Poisson ratio (0.45)
-        self.k0 = 3.0  # Thermal Conductivity (0.22 J/(smK))
+        self.nu = 0.3       # Poisson ratio (0.45)
+        self.E0 = 2e5       # Young's Modulus (2e5 MPa -> 2e11 Pa)
+        self.Emin = 1e-9    # Void stiffness
+
+        # self.rho0 = 7850.0  # Density (930 kg/m^3) WANT kg/mm^3
+        self.rho0 = 7.85e-6  # Density (7.85e-6 kg/mm^3 = 7850 kg/m^3)
+
+        self.k0 = 3.0       # Thermal Conductivity (0.22 J/(smK))
         self.kmin = 1e-9
-        self.alpha = 0.01  # Expansion coeff (8.0e-5 /K)
-        self.rho0 = 1.0  # Density (930 kg/m^3)
-        self.Cp = 4.0  # Heat Capacity (1.9e3 J/(kgK))
-        self.Cmin = 1e-9  # Add this
+        self.alpha = 1.2e-5   # Expansion coeff (8.0e-5 /K)
+        self.Cp = 4.0       # Heat Capacity (1.9e3 J/(kgK))
+        self.Cmin = 1e-9    # Add this
 
         # Geometry
         self.ndof_mech = 3 * (nelx + 1) * (nely + 1) * (nelz + 1)
@@ -74,7 +77,11 @@ class ThermoelasticTopologyOptimization3D:
         self.num_elems = nelx * nely * nelz
 
         # Build Element Matrices (Unit Material)
-        self.Ke0, self.Kt0, self.Cethm0 = get_stiffness_matrices(self.nu, self.E0, self.k0, self.alpha, lx=lx, ly=ly, lz=lz)
+        self.lx = lx  # mm
+        self.ly = ly  # mm
+        self.lz = lz  # mm
+        # self.Ke0, self.Kt0, self.Cethm0 = get_stiffness_matrices(self.nu, self.E0, self.k0, self.alpha, lx=self.lx, ly=self.ly, lz=self.lz)
+        self.Ke0, self.Kt0, self.Cethm0 = get_stiffness_matrices(self.nu, 1.0, 1.0, 1.0, lx=self.lx, ly=self.ly, lz=self.lz)
 
         # DOF Mappings
         self._build_edof_matrices()
@@ -359,7 +366,7 @@ class ThermoelasticTopologyOptimization3D:
         # Interpolation: Usually follows Young's modulus (stiffness) scaling
         # because thermal stress = E * alpha * dT.
         sCoup = (self.Emin + x_penal * (self.E0 - self.Emin))
-        vals_Coup = np.kron(sCoup, self.Cethm0.flatten())
+        vals_Coup = np.kron(sCoup * self.alpha, self.Cethm0.flatten())
         C_coup = coo_matrix((vals_Coup, (self.iK_coup, self.jK_coup)),
                             shape=(self.ndof_mech, self.ndof_therm)).tocsc()
 
@@ -369,6 +376,7 @@ class ThermoelasticTopologyOptimization3D:
 
         # Some preliminary boundary node definitions
         node_TF_TL = 0
+        node_TF_ML = self.nely // 2
         node_TF_BL = self.nely
         node_TF_CENTER = ((self.nely + 1) * (self.nelx//2)) + (self.nely//2)
         node_TF_TR =     ((self.nely + 1) * self.nelx)
@@ -377,6 +385,7 @@ class ThermoelasticTopologyOptimization3D:
 
 
         node_MF_TL =     ((self.nely + 1) * (self.nelx + 1) * (self.nelz//2)) + node_TF_TL
+        node_MF_ML =     ((self.nely + 1) * (self.nelx + 1) * (self.nelz//2)) + node_TF_ML
         node_MF_BL =     ((self.nely + 1) * (self.nelx + 1) * (self.nelz//2)) + node_TF_BL
         node_MF_CENTER = ((self.nely + 1) * (self.nelx + 1) * (self.nelz//2)) + node_TF_CENTER
         node_MF_TR =     ((self.nely + 1) * (self.nelx + 1) * (self.nelz//2)) + node_TF_TR
@@ -385,6 +394,7 @@ class ThermoelasticTopologyOptimization3D:
 
 
         node_BF_TL =     ((self.nely + 1) * (self.nelx + 1) * self.nelz) + node_TF_TL
+        node_BF_ML =     ((self.nely + 1) * (self.nelx + 1) * self.nelz) + node_TF_ML
         node_BF_BL =     ((self.nely + 1) * (self.nelx + 1) * self.nelz) + node_TF_BL
         node_BF_CENTER = ((self.nely + 1) * (self.nelx + 1) * self.nelz) + node_TF_CENTER
         node_BF_TR =     ((self.nely + 1) * (self.nelx + 1) * self.nelz) + node_TF_TR
@@ -405,21 +415,47 @@ class ThermoelasticTopologyOptimization3D:
 
         # --- B. Mechanical Equilibrium ---
 
+        # # 1. Loaded DOFs
+        # mechanical_load = -0.001
+        # # loaded_el_nodes = np.array([node_TF_BR])
+        # loaded_el_nodes = nodes_TF
+        # loaded_el_nodes_dof_x = (3 * loaded_el_nodes) + 0
+        # loaded_el_nodes_dof_y = (3 * loaded_el_nodes) + 1
+        # loaded_el_nodes_dof_z = (3 * loaded_el_nodes) + 2
+        # loaded_el_dof = np.hstack([
+        #     # loaded_el_nodes_dof_x,
+        #     # loaded_el_nodes_dof_y,
+        #     loaded_el_nodes_dof_z,
+        # ])
+        #
+        # # 2. Fixed DOFs
+        # fixed_el_nodes = np.array([node_TF_TL, node_TF_BL, node_BF_TL, node_BF_BL])
+        # # fixed_el_nodes = np.array([node_BF_TL, node_BF_BL, node_BF_TR, node_BF_BR])
+        # # fixed_el_nodes = np.array([node_BF_TL, node_BF_BL])
+        # fixed_el_nodes_dof_x = (3 * fixed_el_nodes) + 0
+        # fixed_el_nodes_dof_y = (3 * fixed_el_nodes) + 1
+        # fixed_el_nodes_dof_z = (3 * fixed_el_nodes) + 2
+        # fixed_el_dof = np.hstack([
+        #     fixed_el_nodes_dof_x,
+        #     fixed_el_nodes_dof_y,
+        #     fixed_el_nodes_dof_z,
+        # ])
+
         # 1. Loaded DOFs
-        mechanical_load = -0.001
+        mechanical_load = 10000.0 / len(nodes_BF.tolist()) # Newtons
         # loaded_el_nodes = np.array([node_TF_BR])
-        loaded_el_nodes = nodes_TF
+        loaded_el_nodes = nodes_BF
         loaded_el_nodes_dof_x = (3 * loaded_el_nodes) + 0
         loaded_el_nodes_dof_y = (3 * loaded_el_nodes) + 1
         loaded_el_nodes_dof_z = (3 * loaded_el_nodes) + 2
         loaded_el_dof = np.hstack([
             # loaded_el_nodes_dof_x,
-            # loaded_el_nodes_dof_y,
-            loaded_el_nodes_dof_z,
+            loaded_el_nodes_dof_y,
+            # loaded_el_nodes_dof_z,
         ])
 
         # 2. Fixed DOFs
-        fixed_el_nodes = np.array([node_BF_TL, node_BF_BL, node_BF_TR, node_BF_BR])
+        fixed_el_nodes = nodes_TF
         fixed_el_nodes_dof_x = (3 * fixed_el_nodes) + 0
         fixed_el_nodes_dof_y = (3 * fixed_el_nodes) + 1
         fixed_el_nodes_dof_z = (3 * fixed_el_nodes) + 2
@@ -493,7 +529,8 @@ class ThermoelasticTopologyOptimization3D:
         F_mech_ext[loaded_el_dof] = mechanical_load
 
         # 3. Combine Mechanical Forces and Thermal Forces
-        F_total = F_mech_ext + Ft
+        # F_total = F_mech_ext + Ft
+        F_total = F_mech_ext
 
         # 4. Define Fixed Elastic Nodes
         fixed_el_dof = boundary_conditions['fixed_el_dof']
@@ -599,7 +636,7 @@ class ThermoelasticTopologyOptimization3D:
         # Step 1: temp = U_e @ c_ethm0  -> (N, 8)
         # Step 2: dot(temp, T_e)        -> (N,)
         coupling_prod = np.sum((U_e @ self.Cethm0) * T_e, axis=1)
-        term3_coup = 2.0 * coupling_prod * dE
+        term3_coup = 2.0 * coupling_prod * dE * self.alpha
 
         # --- 4. Total Gradient ---
         # dc = term1_mech + term2_therm + term3_coup
@@ -622,6 +659,7 @@ class ThermoelasticTopologyOptimization3D:
 
             # 1. Physics
             U1, T1, F_mech_ext, Ft, K_mech, K_therm, C_coup = self.solve_physics(self.x)
+            self.plot_physics(U1)
 
             # 2. Sensitivity
             dfdx, f_val, f_val_mech, f_val_therm = self.sensitivity_analysis(self.x, U1, T1, F_mech_ext, Ft, K_mech, K_therm, C_coup)
@@ -677,10 +715,65 @@ class ThermoelasticTopologyOptimization3D:
                 print("Convergence reached.")
                 break
 
-            if (k+1) % 50 == 0:
+            if k % 50 == 0:
                 self.save()
 
         self.save()
+
+
+    def plot_physics(self, U1):
+        design = np.reshape(self.x, (self.nelz, self.nelx, self.nely))
+
+
+        # Convert U1 from mm to meters
+        U1 = U1 * 0.001
+
+        # Get even elements of U1 (x displacements)
+        Ux = U1[0::3]
+        Uy = U1[1::3]
+        Uz = U1[2::3]
+
+        Ux = np.reshape(Ux, (self.nelz+1, self.nelx+1, self.nely+1))
+        Uy = np.reshape(Uy, (self.nelz+1, self.nelx+1, self.nely+1))
+        Uz = np.reshape(Uz, (self.nelz+1, self.nelx+1, self.nely+1))
+
+        print('UX min/max:', np.min(Ux), np.max(Ux))
+        print('UY min/max:', np.min(Uy), np.max(Uy))
+        print('UZ min/max:', np.min(Uz), np.max(Uz))
+
+
+
+        disp = np.sqrt(Ux**2 + Uy**2 + Uz**2)
+
+        boundary_conditions = self._build_boundary_conditions()
+
+        fixed_el_nodes = np.zeros(self.ndof_therm)
+        fixed_el_nodes[boundary_conditions['fixed_el_nodes']] = 1
+        fixed_el_nodes = np.reshape(fixed_el_nodes, (self.nelz + 1, self.nelx + 1, self.nely + 1))
+
+        loaded_el_nodes = np.zeros(self.ndof_therm)
+        loaded_el_nodes[boundary_conditions['loaded_el_nodes']] = 1
+        loaded_el_nodes = np.reshape(loaded_el_nodes, (self.nelz + 1, self.nelx + 1, self.nely + 1))
+
+        import napari
+        viewer = napari.Viewer()
+        viewer.add_image(design, name='rho', rendering='attenuated_mip')
+        viewer.add_image(fixed_el_nodes, name='fixed_elements', rendering='attenuated_mip', visible=False, colormap='green')
+        viewer.add_image(loaded_el_nodes, name='force_elements', rendering='attenuated_mip', visible=False, colormap='fire')
+
+        viewer.add_image(Ux, name='Ux', rendering='mip', visible=False, colormap='blue')
+        viewer.add_image(Uy, name='Uy', rendering='mip', visible=False, colormap='green')
+        viewer.add_image(Uz, name='Uz', rendering='mip', visible=False, colormap='red')
+        viewer.add_image(disp, name='Displacement Magnitude', rendering='attenuated_mip', visible=False, colormap='yellow')
+
+
+        viewer.dims.ndisplay = 3  # switch to 3D view
+        viewer.axes.visible = True
+        napari.run()
+        exit(0)
+
+
+
 
 
     def save(self):
@@ -731,7 +824,9 @@ class ThermoelasticTopologyOptimization3D:
             viewer.add_image(fixed_therm_nodes, name='heatsink_elements', rendering='attenuated_mip', visible=False, colormap='purple')
             viewer.add_image(heat_gen_nodes, name='heat_gen_elements', rendering='attenuated_mip', visible=False, colormap='blue')
             viewer.dims.ndisplay = 3  # switch to 3D view
+            viewer.axes.visible = True
             napari.run()
+            exit(0)
 
 
 
@@ -771,34 +866,21 @@ def parse_arguments():
 
 if __name__ == '__main__':
 
-    # # Testing Setup
-    # nelx, nely, nelz = 20, 20, 20
-    # volfrac = 0.3
-    # penal = 3.0
-    # rmin = 1.5
-    # el_weight = 0.5
-    # fname = 'test_design.npz'
-    # plot = False
 
-
-    # Datagen Setup
-    nelx, nely, nelz = 100, 40, 16
-    # nelx, nely, nelz = 20, 20, 20
-    args = parse_arguments()
-    volfrac = float(args.volume_fraction)
+    # Ansys Testing Steup
+    nelx, nely, nelz = 2, 4, 40
+    volfrac = 1.0
     penal = 3.0
     rmin = 1.5
-    el_weight = float(args.weight)
-    fname = str(args.fname) + '.npz'
-    plot = False
+    el_weight = 0.5
+    fname = 'test_design.npz'
+    plot = True
 
-
-
-
-
+    l_ele = 50.0
     opt = ThermoelasticTopologyOptimization3D(
         nelx, nely, nelz,
         volfrac, penal, rmin,
+        lx=l_ele, ly=l_ele, lz=l_ele,
         iter_solve=True,
         fname=fname,
         el_weight=el_weight,
@@ -806,6 +888,28 @@ if __name__ == '__main__':
     )
 
     opt.optimize(max_iter=200)
+
+    # # Testing Setup
+    # nelx, nely, nelz = 20, 20, 20
+    # # nelx, nely, nelz = 100, 40, 16
+    # volfrac = 0.3
+    # penal = 3.0
+    # rmin = 1.5
+    # el_weight = 0.5
+    # fname = 'test_design.npz'
+    # plot = True
+
+    # # Datagen Setup
+    # nelx, nely, nelz = 100, 40, 16
+    # # nelx, nely, nelz = 20, 20, 20
+    # args = parse_arguments()
+    # volfrac = float(args.volume_fraction)
+    # penal = 3.0
+    # rmin = 1.5
+    # el_weight = float(args.weight)
+    # fname = str(args.fname) + '.npz'
+    # plot = False
+
 
 
 

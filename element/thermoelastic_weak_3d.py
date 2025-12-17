@@ -1,5 +1,12 @@
 import numpy as np
 
+#  _   _                  _    ____            _            _
+# | | | |  __ _  _ __  __| |  / ___| ___    __| |  ___   __| |
+# | |_| | / _` || '__|/ _` | | |    / _ \  / _` | / _ \ / _` |
+# |  _  || (_| || |  | (_| | | |___| (_) || (_| ||  __/| (_| |
+# |_| |_| \__,_||_|   \__,_|  \____|\___/  \__,_| \___| \__,_|
+#
+
 
 def get_stiffness_matrices(nu: float, E: float, k: float, alpha: float,
                  lx: float = 1.0, ly: float = 1.0, lz: float = 1.0):
@@ -21,10 +28,10 @@ def get_stiffness_matrices(nu: float, E: float, k: float, alpha: float,
 
     Args:
         nu (float): Poisson's ratio
-        E (float): Young's modulus
+        E (float): Young's modulus (MPa -> N/mm^2)
         k (float): Thermal conductivity (isotropic)
         alpha (float): Coefficient of thermal expansion
-        lx, ly, lz: Physical dimensions of the element in x, y, z.
+        lx, ly, lz: Physical dimensions of the element in x, y, z (mm)
 
     Returns:
         (ke, k_eth, c_ethm)
@@ -131,6 +138,171 @@ def get_stiffness_matrices(nu: float, E: float, k: float, alpha: float,
     return ke, k_eth, c_ethm
 
 
+#   ____                           _
+#  / ___|  ___  _ __    ___  _ __ (_)  ___
+# | |  _  / _ \| '_ \  / _ \| '__|| | / __|
+# | |_| ||  __/| | | ||  __/| |   | || (__
+#  \____| \___||_| |_| \___||_|   |_| \___|
+#
+
+def get_mechanical_stiffness(nu: float, E: float, lx: float = 1.0, ly: float = 1.0, lz: float = 1.0):
+    """
+    Builds 24x24 mechanical stiffness matrix (Hex8).
+    Integral( B.T * D * B ) dV
+    """
+    # --- Gauss Points & Geometry Setup ---
+    val = 1.0 / np.sqrt(3)
+    gp = np.array([-val, val])
+    xi_nodes = np.array([-1, 1, 1, -1, -1, 1, 1, -1])
+    et_nodes = np.array([-1, -1, 1, 1, -1, -1, 1, 1])
+    ze_nodes = np.array([-1, -1, -1, -1, 1, 1, 1, 1])
+
+    # Jacobian terms
+    invJ = np.diag([2.0 / lx, 2.0 / ly, 2.0 / lz])
+    detJ = (lx * ly * lz) / 8.0
+
+    # --- Material Matrix (D) ---
+    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+    mu = E / (2 * (1 + nu))
+    D = np.zeros((6, 6))
+    D[:3, :3] = lam
+    D[range(3), range(3)] += 2 * mu
+    D[3:, 3:] = np.diag([mu, mu, mu])
+
+    ke = np.zeros((24, 24))
+
+    # --- Integration ---
+    for xi in gp:
+        for eta in gp:
+            for zeta in gp:
+                # Derivatives dN/dxi (8x3)
+                dN_dxi = np.zeros((8, 3))
+                dN_dxi[:, 0] = 0.125 * xi_nodes * (1 + et_nodes * eta) * (1 + ze_nodes * zeta)
+                dN_dxi[:, 1] = 0.125 * et_nodes * (1 + xi_nodes * xi) * (1 + ze_nodes * zeta)
+                dN_dxi[:, 2] = 0.125 * ze_nodes * (1 + xi_nodes * xi) * (1 + et_nodes * eta)
+
+                # Physical derivatives dN/dx (8x3)
+                dN_dx = dN_dxi @ invJ
+
+                # B Matrix (6x24)
+                B = np.zeros((6, 24))
+                B[0, 0::3] = dN_dx[:, 0]
+                B[1, 1::3] = dN_dx[:, 1]
+                B[2, 2::3] = dN_dx[:, 2]
+                B[3, 0::3] = dN_dx[:, 1];
+                B[3, 1::3] = dN_dx[:, 0]
+                B[4, 1::3] = dN_dx[:, 2];
+                B[4, 2::3] = dN_dx[:, 1]
+                B[5, 0::3] = dN_dx[:, 2];
+                B[5, 2::3] = dN_dx[:, 0]
+
+                # Accumulate ke
+                ke += (B.T @ D @ B) * detJ
+
+    return ke
+
+def get_thermal_stiffness(k: float, lx: float = 1.0, ly: float = 1.0, lz: float = 1.0):
+    """
+    Builds 8x8 thermal conductivity matrix (Hex8).
+    Integral( dN_dx.T * k * dN_dx ) dV
+    """
+    val = 1.0 / np.sqrt(3)
+    gp = np.array([-val, val])
+    xi_nodes = np.array([-1, 1, 1, -1, -1, 1, 1, -1])
+    et_nodes = np.array([-1, -1, 1, 1, -1, -1, 1, 1])
+    ze_nodes = np.array([-1, -1, -1, -1, 1, 1, 1, 1])
+
+    invJ = np.diag([2.0 / lx, 2.0 / ly, 2.0 / lz])
+    detJ = (lx * ly * lz) / 8.0
+
+    k_eth = np.zeros((8, 8))
+
+    for xi in gp:
+        for eta in gp:
+            for zeta in gp:
+                dN_dxi = np.zeros((8, 3))
+                dN_dxi[:, 0] = 0.125 * xi_nodes * (1 + et_nodes * eta) * (1 + ze_nodes * zeta)
+                dN_dxi[:, 1] = 0.125 * et_nodes * (1 + xi_nodes * xi) * (1 + ze_nodes * zeta)
+                dN_dxi[:, 2] = 0.125 * ze_nodes * (1 + xi_nodes * xi) * (1 + et_nodes * eta)
+
+                dN_dx = dN_dxi @ invJ
+
+                # Accumulate k_eth
+                # dN_dx is (8x3), resulting term is (8x8)
+                k_eth += (dN_dx @ dN_dx.T) * k * detJ
+
+    return k_eth
+
+def get_coupling_matrix(nu: float, E: float, alpha: float, lx: float = 1.0, ly: float = 1.0, lz: float = 1.0):
+    """
+    Builds 24x8 coupling matrix.
+    Maps Nodal Temps (8) -> Mechanical Forces (24).
+    """
+    val = 1.0 / np.sqrt(3)
+    gp = np.array([-val, val])
+    xi_nodes = np.array([-1, 1, 1, -1, -1, 1, 1, -1])
+    et_nodes = np.array([-1, -1, 1, 1, -1, -1, 1, 1])
+    ze_nodes = np.array([-1, -1, -1, -1, 1, 1, 1, 1])
+
+    invJ = np.diag([2.0 / lx, 2.0 / ly, 2.0 / lz])
+    detJ = (lx * ly * lz) / 8.0
+
+    # --- Material Stress Vector (beta) ---
+    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+    mu = E / (2 * (1 + nu))
+    D = np.zeros((6, 6))
+    D[:3, :3] = lam
+    D[range(3), range(3)] += 2 * mu
+    D[3:, 3:] = np.diag([mu, mu, mu])
+
+    thermal_strain_unit = np.array([1, 1, 1, 0, 0, 0]) * alpha
+    beta_vec = D @ thermal_strain_unit
+
+    c_ethm = np.zeros((24, 8))
+
+    for xi in gp:
+        for eta in gp:
+            for zeta in gp:
+                # Shape Functions (N) - Needed here for the coupling
+                N = 0.125 * (1 + xi_nodes * xi) * (1 + et_nodes * eta) * (1 + ze_nodes * zeta)
+
+                # Derivatives
+                dN_dxi = np.zeros((8, 3))
+                dN_dxi[:, 0] = 0.125 * xi_nodes * (1 + et_nodes * eta) * (1 + ze_nodes * zeta)
+                dN_dxi[:, 1] = 0.125 * et_nodes * (1 + xi_nodes * xi) * (1 + ze_nodes * zeta)
+                dN_dxi[:, 2] = 0.125 * ze_nodes * (1 + xi_nodes * xi) * (1 + et_nodes * eta)
+                dN_dx = dN_dxi @ invJ
+
+                # B Matrix
+                B = np.zeros((6, 24))
+                B[0, 0::3] = dN_dx[:, 0]
+                B[1, 1::3] = dN_dx[:, 1]
+                B[2, 2::3] = dN_dx[:, 2]
+                B[3, 0::3] = dN_dx[:, 1];
+                B[3, 1::3] = dN_dx[:, 0]
+                B[4, 1::3] = dN_dx[:, 2];
+                B[4, 2::3] = dN_dx[:, 1]
+                B[5, 0::3] = dN_dx[:, 2];
+                B[5, 2::3] = dN_dx[:, 0]
+
+                # Accumulate coupling
+                # Contribution: B.T @ beta @ N
+                f_thermal_unit = B.T @ beta_vec  # (24,)
+                c_ethm += np.outer(f_thermal_unit, N) * detJ
+
+    return c_ethm
+
+#  _____           _    _
+# |_   _|___  ___ | |_ (_) _ __    __ _
+#   | | / _ \/ __|| __|| || '_ \  / _` |
+#   | ||  __/\__ \| |_ | || | | || (_| |
+#   |_| \___||___/ \__||_||_| |_| \__, |
+#                                 |___/
+
+
+
+
+
 # --- Example Usage / Verification ---
 if __name__ == "__main__":
     # Standard steel-like parameters
@@ -139,9 +311,20 @@ if __name__ == "__main__":
     k_val = 50.0
     alpha_val = 12e-6
 
+    # Hard coded version
     ke, k_eth, c_ethm = get_stiffness_matrices(nu_val, E_val, k_val, alpha_val)
 
-    print(f"Ke shape: {ke.shape}")
-    print(f"K_eth shape: {k_eth.shape}")
-    print(f"C_ethm shape: {c_ethm.shape}")
-    print(f"Trace(Ke): {np.trace(ke):.4e}")
+    # Generic version
+    ke2 = get_mechanical_stiffness(nu_val, E_val)
+    k_eth2 = get_thermal_stiffness(k_val)
+    c_ethm2 = get_coupling_matrix(nu_val, E_val, alpha_val)
+
+    # Printing
+    print(ke.tolist())
+    print(ke2.tolist())
+    print('-----------')
+    print(k_eth.tolist())
+    print(k_eth2.tolist())
+    print('-----------')
+    print(c_ethm.tolist())
+    print(c_ethm2.tolist())
