@@ -2,7 +2,8 @@ import trimesh
 import numpy as np
 
 # Load the mesh you just saved
-mesh_path = '/D3/v2/designs/voxel_mesh3.stl'
+# mesh_path = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs/voxel_mesh3.stl'
+mesh_path = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs/voxel_mesh_block.stl'
 mesh = trimesh.load(mesh_path)
 
 print("--- Mesh Diagnostics ---")

@@ -139,10 +139,19 @@ class ThermalFlexureTopologyOptimization:
                 # n2 = (ely + 1) + elx * (self.nely + 1)
                 # n3 = (ely + 1) + (elx + 1) * (self.nely + 1)
                 # n4 = ely + (elx + 1) * (self.nely + 1)
-                n1 = (ely + 1) + elx * (self.nely + 1)  # Bottom Left
-                n2 = (ely + 1) + (elx + 1) * (self.nely + 1)  # Bottom Right
-                n3 = ely + (elx + 1) * (self.nely + 1)  # Top Right
-                n4 = ely + elx * (self.nely + 1)  # Top Left
+
+
+                # n1 = (ely + 1) + elx * (self.nely + 1)  # Bottom Left
+                # n2 = (ely + 1) + (elx + 1) * (self.nely + 1)  # Bottom Right
+                # n3 = ely + (elx + 1) * (self.nely + 1)  # Top Right
+                # n4 = ely + elx * (self.nely + 1)  # Top Left
+
+                n1 = ely + elx * (self.nely + 1)  # Top Left
+                n2 = ely + (elx + 1) * (self.nely + 1)  # Top Right
+                n3 = (ely + 1) + (elx + 1) * (self.nely + 1)  # Bottom Right
+                n4 = (ely + 1) + elx * (self.nely + 1)  # Bottom Left
+
+
                 self.edofMat_therm[el, :] = [n1, n2, n3, n4]
 
                 # Mechanical Nodes (Vector x,y)
@@ -599,7 +608,7 @@ def run_thermal_calibration(optimizer, max_time_seconds=200, steps=100):
 
 if __name__ == "__main__":
     # Example Setup
-    nelx, nely = 128, 128
+    nelx, nely = 64, 64
     volfrac = 0.3
     penal = 3.0
     rmin = 3.0

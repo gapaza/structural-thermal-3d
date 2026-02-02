@@ -26,28 +26,6 @@ from D2.flexure_v2.mma_subroutine import mmasub, MMAInputs
 
 from element.thermoelastic_weak_3d import get_stiffness_matrices
 
-@dataclass
-class Material:
-    name: str
-    E: float       # Young's Modulus (MPa)
-    nu: float      # Poisson's Ratio
-    rho: float     # Density (kg/m^3)
-    k: float       # Thermal Conductivity (W/mK)
-    Cp: float      # Specific Heat (J/kgK)
-    alpha: float   # Thermal Expansion (1/K)
-
-# Define Materials
-STRUCTURAL_STEEL = Material(
-    name="Aluminum 6061",
-    E=2e5,         # Young's modulus in MPa (uses mm units)
-    nu=0.33,       # Poisson's ratio
-    rho=7.85e-6,   # Density (7.85e-6 kg/mm^3 = 7850 kg/m^3)
-    k=0.0605,       # W/mK (60.5 W/mK = 0.0605 W/mmK))
-
-    Cp=897.0,      # J/kgK (897 J/(kgK) = 897e-6 J/(gK))
-    alpha=23e-6    # /K
-)
-
 
 
 # ==========================================
@@ -301,6 +279,11 @@ class ThermoelasticTopologyOptimization3D:
 
         # Calculate the "n1" (Bottom-Left-Back) node for every element at once
         # n = y + x*ny_n + z*ny_n*nx_n
+
+        # n1 = (ely + 1) + elx * ny_n + elz * ny_n * nx_n        # Bottom left
+        # n2 = (ely + 1) + (elx + 1) * ny_n + elz * ny_n * nx_n  # Bottom right
+        # n3 = ely + (elx + 1) * ny_n + elz * ny_n * nx_n        # Top right
+        # n4 = ely + elx * ny_n + elz * ny_n * nx_n              # Top left
 
         n1 = (ely) + elx * ny_n + elz * ny_n * nx_n            # Top left
         n2 = (ely) + (elx + 1) * ny_n + elz * ny_n * nx_n      # Top right
@@ -682,8 +665,7 @@ class ThermoelasticTopologyOptimization3D:
 
             # 1. Physics
             U1, T1, F_mech_ext, Ft, K_mech, K_therm, C_coup = self.solve_physics(self.x)
-            if k % 50 == 0:
-                self.plot_physics(U1)
+            self.plot_physics(U1)
 
             # 2. Sensitivity
             dfdx, f_val, f_val_mech, f_val_therm = self.sensitivity_analysis(self.x, U1, T1, F_mech_ext, Ft, K_mech, K_therm, C_coup)
@@ -761,9 +743,13 @@ class ThermoelasticTopologyOptimization3D:
         Uy = np.reshape(Uy, (self.nelz+1, self.nelx+1, self.nely+1))
         Uz = np.reshape(Uz, (self.nelz+1, self.nelx+1, self.nely+1))
 
-        print('UX min/max (m):', np.min(Ux), np.max(Ux))
-        print('UY min/max (m):', np.min(Uy), np.max(Uy))
-        print('UZ min/max (m):', np.min(Uz), np.max(Uz))
+        print('X Axis Displacements (m)')
+        print('Max:', np.max(Ux))
+        print('Min:', np.min(Ux))
+
+        print('UX min/max (mm):', np.min(Ux), np.max(Ux))
+        print('UY min/max (mm):', np.min(Uy), np.max(Uy))
+        print('UZ min/max (mm):', np.min(Uz), np.max(Uz))
 
 
 
@@ -893,12 +879,12 @@ if __name__ == '__main__':
 
     # Ansys Testing Steup
     nelx, nely, nelz = 2, 4, 40
-    volfrac = 0.5
+    volfrac = 1.0
     penal = 3.0
     rmin = 1.5
-    el_weight = 1.0
+    el_weight = 0.5
     fname = 'test_design.npz'
-    plot = False
+    plot = True
 
     l_ele = 50.0
     opt = ThermoelasticTopologyOptimization3D(

@@ -171,10 +171,20 @@ class ThermalFlexureTopologyOptimization:
             for ely in range(self.nely):
                 el = ely + elx * self.nely
                 # Thermal Nodes (Scalar)
-                n1 = (ely + 1) + elx * (self.nely + 1)  # Bottom Left
-                n2 = (ely + 1) + (elx + 1) * (self.nely + 1)  # Bottom Right
-                n3 = ely + (elx + 1) * (self.nely + 1)  # Top Right
-                n4 = ely + elx * (self.nely + 1)  # Top Left
+
+
+                # n1 = (ely + 1) + elx * (self.nely + 1)  # Bottom Left
+                # n2 = (ely + 1) + (elx + 1) * (self.nely + 1)  # Bottom Right
+                # n3 = ely + (elx + 1) * (self.nely + 1)  # Top Right
+                # n4 = ely + elx * (self.nely + 1)  # Top Left
+
+                n1 = ely + elx * (self.nely + 1)  # Top Left
+                n2 = ely + (elx + 1) * (self.nely + 1)  # Top Right
+                n3 = (ely + 1) + (elx + 1) * (self.nely + 1)  # Bottom Right
+                n4 = (ely + 1) + elx * (self.nely + 1)  # Bottom Left
+
+
+
                 self.edofMat_therm[el, :] = [n1, n2, n3, n4]
 
                 # Mechanical Nodes (Vector x,y)
@@ -826,7 +836,7 @@ if __name__ == "__main__":
     print(f"Calibration complete. Best time found: {best_tf}s")
 
     # 3. Update Optimizer with Calibrated Time
-    opt.num_time_steps = 100
+    opt.num_time_steps = 1000
     opt.dt = best_tf / opt.num_time_steps
     print(f"Optimization set to: {opt.num_time_steps} steps of {opt.dt:.2f}s")
 

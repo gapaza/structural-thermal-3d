@@ -5,14 +5,29 @@ def get_thermal_stiffness(k: float, lx: float = 1.0, ly: float = 1.0, thick: flo
     Builds 4x4 thermal conductivity matrix (Quad4).
     Integral( dN_dx.T * k * dN_dx ) * t * dA
     """
+
+    # Gauss quadrature samples the function at specific points
+    # - Our Gauss points are (xi: +-1/sqrt(3), eta: +-1/sqrt(3)) for 2-point quadrature
     val = 1.0 / np.sqrt(3)
     gp = np.array([-val, val])
 
+
+    # This defines the local coordinates of the 4 nodes of the local Quad4 element
+    # N4. ---------- N3.
+    # |              |
+    # |              |
+    # |              |
+    # N1. ---------- N2.
     xi_nodes = np.array([-1, 1, 1, -1])
     et_nodes = np.array([-1, -1, 1, 1])
+    # N1. (-1,-1)
+    # N2. (1,-1)
+    # N3. (1,1)
+    # N4. (-1,1)
 
+    # Jacobian inverse and determinant
     invJ = np.diag([2.0 / lx, 2.0 / ly])
-    detJ = (lx * ly) / 4.0
+    detJ = (lx * ly) / 4.0  # ratio of: (area of physical element) / (area of local element)
 
     k_eth = np.zeros((4, 4))
 

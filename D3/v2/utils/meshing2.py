@@ -4,9 +4,15 @@ from stl import mesh
 import os
 
 # --- 1. Load the 3D NumPy Array ---
-numpy_file = '/D3/v2/designs/voxel_design.npz'
+numpy_file = '/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs/voxel_design.npz'
 data = np.load(numpy_file)
 voxel_array = data['design']
+
+# Static testing a simple rectangular prism
+voxel_array = np.ones_like(voxel_array)
+
+# print(voxel_array.shape)
+# exit(0)
 
 # ==========================================
 # --- 2. PRE-PROCESSING (CRITICAL FIX) ---
@@ -53,7 +59,8 @@ for i, f in enumerate(faces):
     mesh_data['vectors'][i] = verts[f]
 
 mesh_object = mesh.Mesh(mesh_data)
-save_path = os.path.join('/D3/v2/designs', 'voxel_mesh3.stl')
+# save_path = os.path.join('/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs', 'voxel_mesh3.stl')
+save_path = os.path.join('/Users/gapaza/repos/ideal/structural-thermal-3d/D3/v2/designs', 'voxel_mesh_block.stl')
 mesh_object.save(save_path)
 print(f"Saved solid mesh to: {save_path}")
 
