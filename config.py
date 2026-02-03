@@ -4,7 +4,7 @@ import os
 # Zaratan CPU Affinity (HPC)
 # --------------------------------------------------------------
 using_hpc = True
-AVAILABLE_CPUS = 30
+AVAILABLE_CPUS = 50
 if using_hpc is True:
     slurm_cpu_ids = os.getenv('SLURM_JOB_CPUS_PER_NODE')
     if slurm_cpu_ids is not None:
